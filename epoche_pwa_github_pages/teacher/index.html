@@ -1,0 +1,126 @@
+
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>epochē · Teacher (Publish)</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2563eb">
+<link rel="icon" href="../icon-192.png">
+<style>
+:root{--bg:#f8f9fb;--fg:#111;--accent:#2563eb;--muted:#6b7280;--card:#fff;--shadow:0 6px 24px rgba(0,0,0,.08)}
+@media (prefers-color-scheme: dark){:root{--bg:#0b0c0f;--fg:#f2f4f8;--accent:#60a5fa;--muted:#9aa3af;--card:#151821;--shadow:0 6px 24px rgba(0,0,0,.5)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Apple SD Gothic Neo,'맑은 고딕',sans-serif}
+.wrap{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+header{display:flex;align-items:center;justify-content:center;padding:8px 12px 0}
+header img{max-width:440px;width:min(70vw,440px);height:auto}
+main{display:flex;align-items:center;justify-content:center;padding:12px 16px}
+#display{width:100%;max-width:900px;text-align:center;line-height:1.25;margin:0 auto;padding:16px;border-radius:20px;background:var(--card);
+box-shadow:var(--shadow);font-size:clamp(24px,6vw,56px);letter-spacing:.2px;opacity:0;transform:translateY(-10px);transition:opacity .4s,transform .4s;min-height:3.2em}
+@keyframes slideFade{0%{opacity:0;transform:translateY(-14px)}50%{opacity:1;transform:translateY(4px)}100%{opacity:1;transform:translateY(0)}}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:14px;font-size:clamp(15px,3.6vw,18px);padding:14px 16px;min-height:48px;font-weight:600;box-shadow:0 4px 14px rgba(37,99,235,.25)}
+.btn.secondary{background:var(--card);color:var(--fg);border:1px solid rgba(0,0,0,.08);box-shadow:none}
+select,input[type="number"],textarea{padding:10px 12px;min-height:44px;border-radius:12px;border:1px solid rgba(0,0,0,.15);background:var(--card);color:var(--fg)}
+.meta{text-align:center;font-size:13px;color:var(--muted);margin-top:8px;grid-column:1/-1}
+
+.controls{position:sticky;bottom:0;z-index:10;width:100%;background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.02) 12%),var(--bg);
+border-top:1px solid rgba(0,0,0,.06);padding:12px 14px calc(12px + env(safe-area-inset-bottom));display:grid;grid-template-columns:auto auto auto 1fr auto auto auto;gap:10px}
+#editor{padding:10px 14px} textarea{width:100%;min-height:200px;font-size:14px;line-height:1.35}
+@media (max-width:720px){.controls{grid-template-columns:1fr 1fr 1fr}}
+</style></head><body>
+<div class="wrap">
+<header><img src="../icon-192.png" alt="epochē logo"></header>
+<main><div id="display"></div></main>
+
+<section id="editor">
+  <p class="meta">한 줄 형식: <b>level|type|text</b>  예) <i>2|Adj Clause|The book that I read was exciting.</i></p>
+  <textarea id="editorArea"></textarea>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <button id="saveBtn" class="btn">Save (Local)</button>
+    <button id="publishBtn" class="btn secondary">Publish → sentences.json</button>
+    <label class="btn secondary" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+      <input id="importFile" type="file" accept=".json,.txt" style="display:none"> Import
+    </label>
+  </div>
+</section>
+
+<footer class="controls">
+  <select id="levelSelect"><option value="all">Level: All</option><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>
+  <select id="typeSelect"><option value="all">Type: All</option><option value="Adj Phrase">형용사구 (Adj Phrase)</option><option value="Adj Clause">형용사절 (Adj Clause)</option></select>
+  <button id="filterBtn" class="btn secondary">Apply</button>
+  <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+    <input id="jumpInput" type="number" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="#">
+    <button id="jumpBtn" class="btn secondary">Go</button>
+  </div>
+  <button id="startBtn" class="btn">Start</button>
+  <button id="nextSentenceBtn" class="btn">Next</button>
+  <button id="refreshAppBtn" class="btn secondary">Refresh app</button>
+  <div class="meta" id="counter">Sentence 0 / 0</div>
+</footer>
+</div>
+
+<script>
+const DEFAULT_DATA = [{"level": 1, "type": "Adj Phrase", "text": "The boy in the blue shirt is my cousin."}, {"level": 1, "type": "Adj Phrase", "text": "The book on the table is mine."}, {"level": 1, "type": "Adj Phrase", "text": "The girl with long hair sings well."}, {"level": 1, "type": "Adj Clause", "text": "The boy who sits by the window is new."}, {"level": 2, "type": "Adj Clause", "text": "The shoes that I bought yesterday fit well."}, {"level": 3, "type": "Adj Clause", "text": "The city that I dreamed of visiting finally feels real."}];
+const STORAGE_KEY = "epoche.levels.v1";
+
+function normalizeLine(line){
+  line = line.trim(); if(!line) return null;
+  if(line.startsWith("{")){ try{ const obj=JSON.parse(line); if(obj.level&&obj.type&&obj.text) return obj; }catch(e){} }
+  const parts=line.split("|"); if(parts.length>=3){ const lv=parseInt(parts[0].trim(),10); const tp=parts[1].trim(); const txt=parts.slice(2).join("|").trim();
+    if(!isNaN(lv)&&tp&&txt) return {level:lv,type:tp,text:txt}; }
+  return null;
+}
+function toTSV(items){ return items.map(x=>`${x.level}|${x.type}|${x.text}`).join("\n"); }
+
+let DATA = [];
+try{ const raw=localStorage.getItem(STORAGE_KEY); DATA = raw ? JSON.parse(raw) : DEFAULT_DATA.slice(); if(!Array.isArray(DATA)||DATA.length===0) DATA=DEFAULT_DATA.slice(); }
+catch(e){ DATA=DEFAULT_DATA.slice(); }
+
+const display=document.getElementById('display'); const counter=document.getElementById('counter');
+const levelSelect=document.getElementById('levelSelect'); const typeSelect=document.getElementById('typeSelect');
+const filterBtn=document.getElementById('filterBtn'); const jumpInput=document.getElementById('jumpInput'); const jumpBtn=document.getElementById('jumpBtn');
+const startBtn=document.getElementById('startBtn'); const nextSentenceBtn=document.getElementById('nextSentenceBtn'); const refreshAppBtn=document.getElementById('refreshAppBtn');
+
+const editorArea=document.getElementById('editorArea'); const saveBtn=document.getElementById('saveBtn'); const importFile=document.getElementById('importFile'); const publishBtn=document.getElementById('publishBtn');
+
+let filtered=DATA.slice(); let idx=0; let wordIndex=0; let wordGroups=[]; let isRunning=false;
+
+function applyFilter(){ const lv=levelSelect.value; const tp=typeSelect.value;
+  filtered = DATA.filter(s=>(lv==='all'||String(s.level)===lv)&&(tp==='all'||s.type===tp)); idx=0; updateCounter(); }
+function updateCounter(){ const total=filtered.length; const current=total===0?0:(idx%total)+1; counter.textContent=`Sentence ${current} / ${total}`; }
+function groupWords(sentence){ const words=sentence.split(" "); const groups=[]; let i=0;
+  while(i<words.length){ const w=words[i].toLowerCase(); if((w==='a'||w==='an'||w==='the')&&i+1<words.length){groups.push(words[i]+" "+words[i+1]); i+=2;} else {groups.push(words[i]); i+=1;} } return groups; }
+function speakWord(word){ try{ const u=new SpeechSynthesisUtterance(word); u.lang='en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+function showNextWord(){ if(wordIndex>=wordGroups.length){ isRunning=false; startBtn.disabled=false; return; }
+  const word=wordGroups[wordIndex]; display.style.opacity=0; display.style.transform='translateY(-8px)'; display.style.animation='none';
+  setTimeout(()=>{ display.textContent=word; display.style.opacity=1; display.style.animation='slideFade .6s ease'; speakWord(word); wordIndex++; setTimeout(showNextWord, 1200); },200); }
+function loadSentence(i){ if(filtered.length===0){ display.textContent='No sentences'; return; }
+  const s=filtered[i%filtered.length]; const header=`[L${s.level} · ${s.type}] `; wordGroups=groupWords(header+s.text); wordIndex=0; isRunning=true; startBtn.disabled=true; updateCounter(); setTimeout(showNextWord,250); }
+function playAndAdvance(){ if(isRunning) return; loadSentence(idx); idx=(idx+1)%Math.max(1,filtered.length); }
+
+filterBtn.addEventListener('click', applyFilter); startBtn.addEventListener('click', playAndAdvance); nextSentenceBtn.addEventListener('click', playAndAdvance);
+jumpBtn.addEventListener('click', ()=>{ if(isRunning) return; const n=parseInt(jumpInput.value,10); if(!isNaN(n)&&filtered.length>0){ idx=Math.max(0,Math.min(filtered.length-1,n-1)); playAndAdvance(); } });
+jumpInput.addEventListener('keydown', e=>{ if(e.key==='Enter') jumpBtn.click(); }); applyFilter();
+
+// Editor
+editorArea.value = toTSV(DATA);
+saveBtn.addEventListener('click', ()=>{ const lines=editorArea.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); if(lines.length===0) return alert('한 줄 이상 입력');
+  const items=[]; for(const line of lines){ const obj=normalizeLine(line); if(!obj) return alert('형식: level|type|text'); items.push(obj);}
+  DATA=items; localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); applyFilter(); alert('Saved locally!'); });
+importFile.addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{
+  try{ let items=[]; if(f.name.endsWith('.txt')){ const lines=String(r.result).split(/\r?\n/).map(s=>s.trim()).filter(Boolean); for(const line of lines){ const obj=normalizeLine(line); if(obj) items.push(obj); } }
+  else { const arr=JSON.parse(r.result); if(Array.isArray(arr)) for(const x of arr) if(x&&x.level&&x.type&&x.text) items.push(x); }
+  if(items.length===0) throw new Error('no items'); DATA=items; localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); editorArea.value=toTSV(DATA); applyFilter(); alert('Imported!'); }
+  catch(err){ alert('Import failed'); } }; r.readAsText(f,'utf-8'); e.target.value=''; });
+// Publish (download sentences.json) → upload to /data/
+publishBtn.addEventListener('click', ()=>{ const blob=new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='sentences.json'; a.click(); URL.revokeObjectURL(url); alert('Download complete. Netlify에 /data/sentences.json 로 교체 업로드하세요.'); });
+// SW refresh
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js'));
+  document.getElementById('refreshAppBtn').addEventListener('click', async ()=>{
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) { reg.update(); if (reg.waiting) { reg.waiting.postMessage({type:'SKIP_WAITING'}); } }
+    location.reload();
+  });
+}
+</script>
+</body></html>

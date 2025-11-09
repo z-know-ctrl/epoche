@@ -1,0 +1,32 @@
+[
+  {
+    "level": 1,
+    "type": "Adj Phrase",
+    "text": "The boy in the blue shirt is my cousin."
+  },
+  {
+    "level": 1,
+    "type": "Adj Phrase",
+    "text": "The book on the table is mine."
+  },
+  {
+    "level": 1,
+    "type": "Adj Phrase",
+    "text": "The girl with long hair sings well."
+  },
+  {
+    "level": 1,
+    "type": "Adj Clause",
+    "text": "The boy who sits by the window is new."
+  },
+  {
+    "level": 2,
+    "type": "Adj Clause",
+    "text": "The shoes that I bought yesterday fit well."
+  },
+  {
+    "level": 3,
+    "type": "Adj Clause",
+    "text": "The city that I dreamed of visiting finally feels real."
+  }
+]
