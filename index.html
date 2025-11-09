@@ -1,1 +1,18 @@
-<h1>GitHub Pages Test</h1>
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Epoche Reader</title>
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<h1>Epoche Reader</h1>
+<ul>
+<li><a href="student/">Student</a></li>
+<li><a href="teacher/">Teacher</a></li>
+</ul>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/epoche/sw.js');
+}
+</script>
+</body></html>

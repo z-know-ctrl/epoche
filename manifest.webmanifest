@@ -1,0 +1,7 @@
+{
+"name": "Epoche Reader",
+"short_name": "Epoche",
+"start_url": "/epoche/",
+"display": "standalone",
+"icons": []
+}

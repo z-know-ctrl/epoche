@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Student</title></head>
+<body>
+<h1>Student Mode</h1>
+<div id="sentence"></div>
+<button onclick="next()">Next</button>
+<script>
+let idx=0;
+let data=[];
+fetch('../data/sentences.json').then(r=>r.json()).then(j=>{
+ data=j.sentences;
+ show();
+});
+function show(){
+ document.getElementById('sentence').innerText=data[idx]||"Done";
+}
+function next(){ idx++; show(); }
+</script>
+</body></html>
